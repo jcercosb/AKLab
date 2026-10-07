@@ -1,9 +1,0 @@
-Metadata-Version: 2.4
-Name: applied-knowledge-lab
-Version: 0.0.1
-Summary: Generic technical knowledge system and applied AI laboratory
-Requires-Python: >=3.11
-Requires-Dist: pydantic<3,>=2.10
-Requires-Dist: SQLAlchemy<3,>=2.0
-Provides-Extra: dev
-Requires-Dist: pytest<10,>=8; extra == "dev"
