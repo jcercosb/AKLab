@@ -119,3 +119,73 @@ def test_changed_record_updates_without_duplication() -> None:
         assert session.scalar(select(func.count()).select_from(SourceItemRow)) == 1
         assert session.scalar(select(func.count()).select_from(KnowledgeItemRow)) == 1
         assert session.scalar(select(func.count()).select_from(EvidenceRow)) == 1
+
+
+def test_history_is_preserved_without_becoming_knowledge() -> None:
+    class MixedSatAdapter:
+        name = "test-sat-mixed"
+        version = "1"
+
+        def fingerprint(self) -> str:
+            return "mixed-fingerprint"
+
+        def records(self):
+            yield SourceRecord(
+                external_id="CONSULTAS:7",
+                source_type="access_table_row",
+                raw_content={"ID_CONSULTA": "7", "CABECERA": "Caso", "SOLUCION": "Resolver"},
+                metadata={"table": "CONSULTAS"},
+            )
+            yield SourceRecord(
+                external_id="HISTORICO:70",
+                source_type="access_table_row",
+                raw_content={"ID_HISTORICO": "70", "ID_BOLETIN": "7", "DESCRIPCION": "Seguimiento"},
+                metadata={"table": "HISTORICO"},
+                parent_external_id="CONSULTAS:7",
+            )
+            yield SourceRecord(
+                external_id="HISTORICO:71",
+                source_type="access_table_row",
+                raw_content={"ID_HISTORICO": "71", "ID_BOLETIN": "999", "DESCRIPCION": "Huerfano"},
+                metadata={"table": "HISTORICO"},
+                parent_external_id="CONSULTAS:999",
+            )
+
+    db = Database("sqlite+pysqlite:///:memory:")
+    db.create_schema()
+
+    with db.session() as session:
+        repo = KnowledgeRepository(session)
+        _bootstrap(repo)
+        importer = Importer(repo)
+        first = importer.run(
+            knowledge_space_id="gredos",
+            source_id="gredos-sat",
+            adapter=MixedSatAdapter(),
+            normalizer=GredosSatNormalizer(),
+        )
+        second = importer.run(
+            knowledge_space_id="gredos",
+            source_id="gredos-sat",
+            adapter=MixedSatAdapter(),
+            normalizer=GredosSatNormalizer(),
+        )
+
+        assert first.new == 3
+        assert first.knowledge_items == 1
+        assert second.unchanged == 3
+        assert second.knowledge_items == 0
+        assert session.scalar(select(func.count()).select_from(SourceItemRow)) == 3
+        assert session.scalar(select(func.count()).select_from(KnowledgeItemRow)) == 1
+        assert session.scalar(select(func.count()).select_from(EvidenceRow)) == 1
+
+        linked = session.scalar(
+            select(SourceItemRow).where(SourceItemRow.external_id == "HISTORICO:70")
+        )
+        orphan = session.scalar(
+            select(SourceItemRow).where(SourceItemRow.external_id == "HISTORICO:71")
+        )
+        assert linked is not None
+        assert orphan is not None
+        assert linked.parent_external_id == "CONSULTAS:7"
+        assert orphan.parent_external_id == "CONSULTAS:999"

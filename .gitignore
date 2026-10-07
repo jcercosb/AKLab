@@ -11,3 +11,6 @@ data/generated/*
 !data/generated/.gitkeep
 
 *.egg-info/
+
+.DS_Store
+._*

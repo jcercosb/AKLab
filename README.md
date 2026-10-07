@@ -2,17 +2,9 @@
 
 Applied Knowledge Lab is a generic technical knowledge system and an applied-AI learning laboratory. Gredos ERP / `SAT.mdb` is the first real source, not the internal data model.
 
-## F0.2-A
+## Current milestone
 
-This bootstrap deliberately contains no LLM. It establishes the source/knowledge/evidence boundary and a reproducible idempotent ingestion path before AI techniques are added.
-
-### Run tests
-
-```bash
-python -m pytest -q
-```
-
-### Architectural boundary
+F0.2 establishes the source/knowledge/evidence boundary and a reproducible, idempotent SAT ingestion path before any LLM or retrieval technique is added.
 
 ```text
 external source
@@ -24,17 +16,31 @@ external source
     -> KnowledgeItem + Evidence
 ```
 
-`SourceAdapter` does not create knowledge. `SAT.mdb` is isolated behind the Gredos SAT adapter/extractor boundary.
+`SourceAdapter` never creates knowledge directly. `SAT.mdb` is isolated behind the Gredos SAT adapter/extractor boundary.
 
-See `docs/F0.2-status.md` and `docs/adr/0001-source-boundary.md`.
+`CONSULTAS` is deterministically normalized into initial `support_case` knowledge. `HISTORICO` is preserved as independent source material with `parent_external_id` back to its consultation when available, but is not automatically promoted to knowledge.
 
-### F0.2-B local extraction workflow
+See:
 
-When `mdbtools` is available, export Access into a neutral format first:
+- `docs/F0.2-status.md`
+- `docs/adr/0001-source-boundary.md`
+- `docs/adr/0002-knowledge-confidence-semantics.md`
+- `docs/adr/0003-sat-history-source-items.md`
+
+## Tests
+
+```bash
+python -m pytest -q
+```
+
+## SAT neutral export
+
+With `mdbtools` installed:
 
 ```bash
 python scripts/export_sat_mdbtools.py /path/to/SAT.mdb data/generated/sat-export
 python scripts/import_sat_neutral.py /path/to/SAT.mdb data/generated/sat-export data/generated/knowledge.sqlite
+python scripts/inspect_f0_store.py data/generated/knowledge.sqlite
 ```
 
-This two-step flow is intentional: the knowledge core can be tested and reused without retaining Microsoft Access as a runtime dependency.
+The two-step flow is intentional: Microsoft Access is an adapter concern, not a runtime dependency of the knowledge core.

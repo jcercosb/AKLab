@@ -20,11 +20,17 @@ class SatExtractor(Protocol):
 
 class GredosSatAdapter:
     name = "gredos-sat"
-    version = "0.1"
+    version = "0.2"
 
-    def __init__(self, mdb_path: str | Path, extractor: SatExtractor) -> None:
+    def __init__(
+        self,
+        mdb_path: str | Path,
+        extractor: SatExtractor,
+        tables: tuple[str, ...] = ("CONSULTAS", "HISTORICO"),
+    ) -> None:
         self.path = Path(mdb_path)
         self.extractor = extractor
+        self.tables = tables
 
     def fingerprint(self) -> str | None:
         digest = hashlib.sha256()
@@ -34,13 +40,35 @@ class GredosSatAdapter:
         return digest.hexdigest()
 
     def records(self) -> Iterable[SourceRecord]:
-        for row in self.extractor.rows("CONSULTAS"):
-            raw_id = row.get("ID_CONSULTA")
-            if raw_id in (None, ""):
-                raise ValueError("CONSULTAS row without ID_CONSULTA")
-            yield SourceRecord(
-                external_id=f"CONSULTAS:{raw_id}",
-                source_type="access_table_row",
-                raw_content=dict(row),
-                metadata={"table": "CONSULTAS", "primary_key": "ID_CONSULTA"},
-            )
+        if "CONSULTAS" in self.tables:
+            for row in self.extractor.rows("CONSULTAS"):
+                raw_id = row.get("ID_CONSULTA")
+                if raw_id in (None, ""):
+                    raise ValueError("CONSULTAS row without ID_CONSULTA")
+                yield SourceRecord(
+                    external_id=f"CONSULTAS:{raw_id}",
+                    source_type="access_table_row",
+                    raw_content=dict(row),
+                    metadata={"table": "CONSULTAS", "primary_key": "ID_CONSULTA"},
+                )
+
+        if "HISTORICO" in self.tables:
+            for row in self.extractor.rows("HISTORICO"):
+                raw_id = row.get("ID_HISTORICO")
+                if raw_id in (None, ""):
+                    raise ValueError("HISTORICO row without ID_HISTORICO")
+                bulletin_id = row.get("ID_BOLETIN")
+                parent_external_id = None
+                if bulletin_id not in (None, ""):
+                    parent_external_id = f"CONSULTAS:{bulletin_id}"
+                yield SourceRecord(
+                    external_id=f"HISTORICO:{raw_id}",
+                    source_type="access_table_row",
+                    raw_content=dict(row),
+                    metadata={
+                        "table": "HISTORICO",
+                        "primary_key": "ID_HISTORICO",
+                        "parent_key": "ID_BOLETIN",
+                    },
+                    parent_external_id=parent_external_id,
+                )

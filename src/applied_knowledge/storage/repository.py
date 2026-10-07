@@ -121,6 +121,7 @@ class KnowledgeRepository:
                 id=stable_uuid("source-item", source_id, record.external_id),
                 source_id=source_id,
                 external_id=record.external_id,
+                parent_external_id=record.parent_external_id,
                 source_type=record.source_type,
                 raw_content=record.raw_content,
                 metadata_json=record.metadata,
@@ -130,9 +131,13 @@ class KnowledgeRepository:
             self.session.add(row)
             state = "new"
         elif row.checksum == checksum:
+            row.parent_external_id = record.parent_external_id
+            row.source_type = record.source_type
+            row.metadata_json = record.metadata
             row.last_seen_run_id = run_id
             state = "unchanged"
         else:
+            row.parent_external_id = record.parent_external_id
             row.source_type = record.source_type
             row.raw_content = record.raw_content
             row.metadata_json = record.metadata

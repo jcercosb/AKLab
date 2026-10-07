@@ -31,6 +31,10 @@ class GredosSatNormalizer:
         return str(value).strip()
 
     def normalize(self, record: SourceRecord) -> NormalizedKnowledge:
+        table = record.metadata.get("table")
+        if table is not None and table != "CONSULTAS":
+            return NormalizedKnowledge(items=())
+
         row = record.raw_content
         title = self._text(row.get("CABECERA")) or f"Consulta {row.get('ID_CONSULTA', '')}".strip()
 

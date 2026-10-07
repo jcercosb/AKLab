@@ -19,6 +19,7 @@ class SourceRecord:
     source_type: str
     raw_content: JsonObject
     metadata: JsonObject = field(default_factory=dict)
+    parent_external_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

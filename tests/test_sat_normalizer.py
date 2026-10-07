@@ -34,3 +34,21 @@ def test_sat_mapping_is_deterministic_and_only_maps_present_fields() -> None:
         ("module", "VENTAS"),
     ]
     assert result.evidence.locator == "CONSULTAS:42"
+
+
+def test_sat_history_is_not_normalized_into_knowledge() -> None:
+    record = SourceRecord(
+        external_id="HISTORICO:70",
+        source_type="access_table_row",
+        raw_content={
+            "ID_HISTORICO": "70",
+            "ID_BOLETIN": "7",
+            "DESCRIPCION": "Cambio de responsable",
+        },
+        metadata={"table": "HISTORICO"},
+        parent_external_id="CONSULTAS:7",
+    )
+
+    result = GredosSatNormalizer().normalize(record)
+
+    assert result.items == ()
