@@ -16,6 +16,7 @@ from .models import (
     ImportRunRow,
     KnowledgeAttributeRow,
     KnowledgeItemRow,
+    KnowledgeRevisionRow,
     KnowledgeSectionRow,
     KnowledgeSpaceRow,
     SourceItemRow,
@@ -44,16 +45,40 @@ class KnowledgeRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def ensure_space(self, *, id: str, name: str, description: str | None = None) -> KnowledgeSpaceRow:
+    def ensure_space(
+        self,
+        *,
+        id: str,
+        name: str,
+        description: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> KnowledgeSpaceRow:
         row = self.session.get(KnowledgeSpaceRow, id)
         if row is None:
-            row = KnowledgeSpaceRow(id=id, name=name, description=description, metadata_json={})
+            row = KnowledgeSpaceRow(
+                id=id,
+                name=name,
+                description=description,
+                metadata_json=metadata or {},
+            )
             self.session.add(row)
         else:
             row.name = name
             row.description = description
+            if metadata is not None:
+                row.metadata_json = metadata
         self.session.flush()
         return row
+
+    def get_space(self, id: str) -> KnowledgeSpaceRow | None:
+        return self.session.get(KnowledgeSpaceRow, id)
+
+    def list_spaces(self) -> list[KnowledgeSpaceRow]:
+        return list(
+            self.session.scalars(
+                select(KnowledgeSpaceRow).order_by(KnowledgeSpaceRow.name, KnowledgeSpaceRow.id)
+            )
+        )
 
     def ensure_source(
         self,
@@ -108,7 +133,13 @@ class KnowledgeRepository:
         run.finished_at = datetime.now(timezone.utc)
         self.session.flush()
 
-    def upsert_source_item(self, *, source_id: str, record: SourceRecord, run_id: str) -> SourceItemUpsert:
+    def upsert_source_item(
+        self,
+        *,
+        source_id: str,
+        record: SourceRecord,
+        run_id: str | None = None,
+    ) -> SourceItemUpsert:
         checksum = canonical_checksum(record.raw_content)
         row = self.session.scalar(
             select(SourceItemRow).where(
@@ -147,6 +178,83 @@ class KnowledgeRepository:
             state = "changed"
         self.session.flush()
         return SourceItemUpsert(row=row, state=state)
+
+
+    def get_knowledge_item(self, id: str) -> KnowledgeItemRow | None:
+        return self.session.get(KnowledgeItemRow, id)
+
+    def list_knowledge_items(
+        self,
+        *,
+        knowledge_space_id: str,
+        kind: str | None = None,
+        status: str | None = None,
+    ) -> list[KnowledgeItemRow]:
+        stmt = select(KnowledgeItemRow).where(
+            KnowledgeItemRow.knowledge_space_id == knowledge_space_id
+        )
+        if kind is not None:
+            stmt = stmt.where(KnowledgeItemRow.kind == kind)
+        if status is not None:
+            stmt = stmt.where(KnowledgeItemRow.status == status)
+        stmt = stmt.order_by(KnowledgeItemRow.title, KnowledgeItemRow.id)
+        return list(self.session.scalars(stmt))
+
+    def add_knowledge_revision(
+        self,
+        *,
+        knowledge_item_id: str,
+        snapshot: dict[str, Any],
+        author_type: str,
+    ) -> KnowledgeRevisionRow:
+        latest = self.session.scalar(
+            select(KnowledgeRevisionRow.revision)
+            .where(KnowledgeRevisionRow.knowledge_item_id == knowledge_item_id)
+            .order_by(KnowledgeRevisionRow.revision.desc())
+            .limit(1)
+        )
+        row = KnowledgeRevisionRow(
+            id=str(uuid.uuid4()),
+            knowledge_item_id=knowledge_item_id,
+            revision=(latest or 0) + 1,
+            snapshot=snapshot,
+            author_type=author_type,
+        )
+        self.session.add(row)
+        self.session.flush()
+        return row
+
+    def list_knowledge_revisions(
+        self,
+        *,
+        knowledge_item_id: str,
+    ) -> list[KnowledgeRevisionRow]:
+        return list(
+            self.session.scalars(
+                select(KnowledgeRevisionRow)
+                .where(KnowledgeRevisionRow.knowledge_item_id == knowledge_item_id)
+                .order_by(KnowledgeRevisionRow.revision)
+            )
+        )
+
+    def get_evidence_source_item(
+        self,
+        *,
+        knowledge_item_id: str,
+        source_id: str,
+        evidence_type: str | None = None,
+    ) -> SourceItemRow | None:
+        stmt = (
+            select(SourceItemRow)
+            .join(EvidenceRow, EvidenceRow.source_item_id == SourceItemRow.id)
+            .where(
+                EvidenceRow.knowledge_item_id == knowledge_item_id,
+                SourceItemRow.source_id == source_id,
+            )
+        )
+        if evidence_type is not None:
+            stmt = stmt.where(EvidenceRow.evidence_type == evidence_type)
+        return self.session.scalar(stmt)
 
     def upsert_normalized_item(
         self,
@@ -241,4 +349,5 @@ class KnowledgeRepository:
             evidence.confidence = evidence_confidence
 
         self.session.flush()
+        self.session.expire(row, ["sections", "attributes"])
         return row

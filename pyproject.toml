@@ -4,17 +4,20 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "applied-knowledge-lab"
-version = "0.0.1"
+version = "0.1.0"
 description = "Generic technical knowledge system and applied AI laboratory"
 requires-python = ">=3.11"
 dependencies = [
   "pydantic>=2.10,<3",
   "SQLAlchemy>=2.0,<3",
+  "fastapi>=0.118,<1",
+  "uvicorn>=0.35,<1",
 ]
 
 [project.optional-dependencies]
 dev = [
   "pytest>=8,<10",
+  "httpx>=0.28,<1",
 ]
 
 [tool.setuptools.packages.find]

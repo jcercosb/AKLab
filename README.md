@@ -4,34 +4,57 @@ Applied Knowledge Lab is a generic technical knowledge system and an applied-AI 
 
 ## Current milestone
 
-F0.2 establishes the source/knowledge/evidence boundary and a reproducible, idempotent SAT ingestion path before any LLM or retrieval technique is added.
+F1 proves that AKLab can start from an empty knowledge space and be populated manually, independently of Gredos or SAT.
+
+F0.2 established the source/knowledge/evidence boundary and a reproducible, idempotent SAT ingestion path. F1 now adds manual knowledge CRUD and revision history without introducing an LLM.
 
 ```text
-external source
-    -> SourceAdapter
-    -> SourceRecord
-    -> generic Importer
-    -> SourceItem
-    -> KnowledgeNormalizer
-    -> KnowledgeItem + Evidence
+external source                 human input
+      |                              |
+SourceAdapter                     FastAPI
+      |                              |
+SourceItem                 ManualKnowledgeService
+      |                              |
+normalizer                   manual SourceItem
+      |                              |
+      +--------> KnowledgeItem <-----+
+                     |
+                  Evidence
+                     |
+             KnowledgeRevision
 ```
 
-`SourceAdapter` never creates knowledge directly. `SAT.mdb` is isolated behind the Gredos SAT adapter/extractor boundary.
-
-`CONSULTAS` is deterministically normalized into initial `support_case` knowledge. `HISTORICO` is preserved as independent source material with `parent_external_id` back to its consultation when available, but is not automatically promoted to knowledge.
+Imported SAT knowledge and manually maintained knowledge share the canonical model, but imported knowledge cannot be modified through the manual-edit path.
 
 See:
 
 - `docs/F0.2-status.md`
+- `docs/F1-status.md`
 - `docs/adr/0001-source-boundary.md`
 - `docs/adr/0002-knowledge-confidence-semantics.md`
 - `docs/adr/0003-sat-history-source-items.md`
+- `docs/adr/0004-manual-knowledge-provenance-and-revisions.md`
+
+## Install
+
+```bash
+python -m pip install -e '.[dev]'
+```
 
 ## Tests
 
 ```bash
 python -m pytest -q
 ```
+
+## Run the API
+
+```bash
+AKLAB_DATABASE_URL=sqlite:///data/generated/aklab.sqlite \
+python -m uvicorn applied_knowledge.api.app:create_app --factory --reload
+```
+
+Open `/docs` for FastAPI's interactive API documentation.
 
 ## SAT neutral export
 

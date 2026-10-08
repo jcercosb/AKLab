@@ -104,6 +104,22 @@ class KnowledgeItemRow(Base):
     )
 
 
+class KnowledgeRevisionRow(Base):
+    __tablename__ = "knowledge_revisions"
+    __table_args__ = (
+        UniqueConstraint("knowledge_item_id", "revision", name="uq_knowledge_revision"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    knowledge_item_id: Mapped[str] = mapped_column(
+        ForeignKey("knowledge_items.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    author_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class KnowledgeSectionRow(Base):
     __tablename__ = "knowledge_sections"
 
