@@ -9,6 +9,7 @@ from applied_knowledge.adapters.gredos.sat.normalizer import GredosSatNormalizer
 from applied_knowledge.ingestion.importer import Importer
 from applied_knowledge.storage.database import Database
 from applied_knowledge.storage.repository import KnowledgeRepository
+from applied_knowledge.search import SqliteFtsIndex
 
 
 def main() -> int:
@@ -25,6 +26,7 @@ def main() -> int:
 
     with db.session() as session:
         repo = KnowledgeRepository(session)
+        search_index = SqliteFtsIndex(session)
         repo.ensure_space(id="gredos", name="Gredos ERP")
         repo.ensure_source(
             id="gredos-sat",
@@ -32,13 +34,15 @@ def main() -> int:
             type="access_database",
             name="SAT.mdb",
         )
-        result = Importer(repo).run(
+        result = Importer(repo, search_index=search_index).run(
             knowledge_space_id="gredos",
             source_id="gredos-sat",
             adapter=adapter,
             normalizer=GredosSatNormalizer(),
         )
+        indexed = search_index.rebuild(knowledge_space_id="gredos")
         print(result)
+        print(f"search_indexed={indexed}")
     return 0
 
 

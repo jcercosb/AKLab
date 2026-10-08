@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from .adapter import SourceAdapter
 from .normalizer import KnowledgeNormalizer
 from applied_knowledge.storage.repository import KnowledgeRepository
+from applied_knowledge.search.index import KnowledgeSearchIndex
 
 
 @dataclass(frozen=True, slots=True)
@@ -16,8 +17,13 @@ class ImportResult:
 
 
 class Importer:
-    def __init__(self, repository: KnowledgeRepository) -> None:
+    def __init__(
+        self,
+        repository: KnowledgeRepository,
+        search_index: KnowledgeSearchIndex | None = None,
+    ) -> None:
         self.repository = repository
+        self.search_index = search_index
 
     def run(
         self,
@@ -45,7 +51,7 @@ class Importer:
 
                 normalized = normalizer.normalize(record)
                 for index, item in enumerate(normalized.items):
-                    self.repository.upsert_normalized_item(
+                    row = self.repository.upsert_normalized_item(
                         knowledge_space_id=knowledge_space_id,
                         source_id=source_id,
                         source_item=upsert.row,
@@ -56,6 +62,8 @@ class Importer:
                         evidence_excerpt=normalized.evidence.excerpt,
                         evidence_confidence=normalized.evidence.confidence,
                     )
+                    if self.search_index is not None:
+                        self.search_index.upsert(row)
                     counters["knowledge_items"] += 1
         except Exception:
             self.repository.finish_import(run, status="failed", stats=counters)

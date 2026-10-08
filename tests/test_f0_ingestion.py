@@ -189,3 +189,38 @@ def test_history_is_preserved_without_becoming_knowledge() -> None:
         assert orphan is not None
         assert linked.parent_external_id == "CONSULTAS:7"
         assert orphan.parent_external_id == "CONSULTAS:999"
+
+
+def test_importer_can_maintain_fts_index() -> None:
+    from applied_knowledge.search import SearchService, SqliteFtsIndex
+
+    db = Database("sqlite+pysqlite:///:memory:")
+    db.create_schema()
+    rows = [
+        {
+            "ID_CONSULTA": 15002,
+            "CABECERA": "Error 15002 al facturar",
+            "PROGRAMA": "GESTION",
+            "MODULO": "FACTURACION",
+            "SOLUCION": "Revisar configuracion de facturacion",
+        }
+    ]
+
+    with db.session() as session:
+        repo = KnowledgeRepository(session)
+        _bootstrap(repo)
+        index = SqliteFtsIndex(session)
+        result = Importer(repo, search_index=index).run(
+            knowledge_space_id="gredos",
+            source_id="gredos-sat",
+            adapter=FakeSatAdapter(rows),
+            normalizer=GredosSatNormalizer(),
+        )
+
+        assert result.knowledge_items == 1
+        hits = SearchService(session).fts(
+            knowledge_space_id="gredos",
+            query="15002 facturar",
+        )
+        assert len(hits) == 1
+        assert hits[0].origin_key == "gredos-sat:CONSULTAS:15002:0"

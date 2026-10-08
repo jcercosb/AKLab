@@ -1,0 +1,5 @@
+{"knowledge_space_id":"gredos","mode":"fts","query":"Error 75 Windows 95","expected_origin_keys":["gredos-sat:CONSULTAS:1:0"]}
+{"knowledge_space_id":"gredos","mode":"fts","query":"corchetes formula seleccion","expected_origin_keys":["gredos-sat:CONSULTAS:3:0"]}
+{"knowledge_space_id":"gredos","mode":"fts","query":"configuracion impresora conta 2000","expected_origin_keys":["gredos-sat:CONSULTAS:4:0"]}
+{"knowledge_space_id":"gredos","mode":"fts","query":"Alt F2 articulo pedido cliente","expected_origin_keys":["gredos-sat:CONSULTAS:5:0"]}
+{"knowledge_space_id":"gredos","mode":"fts","query":"precio medio compras","expected_origin_keys":["gredos-sat:CONSULTAS:6:0"]}

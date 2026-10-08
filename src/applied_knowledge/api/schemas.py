@@ -162,3 +162,13 @@ class KnowledgeRevisionView(BaseModel):
     snapshot: dict[str, Any]
     author_type: str
     created_at: str
+
+
+class SearchHitView(BaseModel):
+    knowledge_item_id: str
+    origin_key: str
+    kind: str
+    title: str
+    status: str
+    score: float | None
+    match_type: str

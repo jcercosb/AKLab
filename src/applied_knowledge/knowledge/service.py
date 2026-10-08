@@ -11,6 +11,7 @@ from applied_knowledge.domain.models import (
 )
 from applied_knowledge.storage.models import KnowledgeItemRow, SourceItemRow
 from applied_knowledge.storage.repository import KnowledgeRepository
+from applied_knowledge.search.index import KnowledgeSearchIndex
 
 
 class KnowledgeNotFoundError(LookupError):
@@ -82,8 +83,13 @@ def _row_to_item(row: KnowledgeItemRow) -> KnowledgeItemData:
 
 
 class ManualKnowledgeService:
-    def __init__(self, repository: KnowledgeRepository) -> None:
+    def __init__(
+        self,
+        repository: KnowledgeRepository,
+        search_index: KnowledgeSearchIndex | None = None,
+    ) -> None:
         self.repository = repository
+        self.search_index = search_index
 
     def create(
         self,
@@ -126,6 +132,8 @@ class ManualKnowledgeService:
             snapshot=_serialize_item(item),
             author_type="human",
         )
+        if self.search_index is not None:
+            self.search_index.upsert(row)
         return row
 
     def get(self, *, knowledge_space_id: str, knowledge_item_id: str) -> KnowledgeItemRow:
@@ -212,6 +220,8 @@ class ManualKnowledgeService:
             snapshot=_serialize_item(updated),
             author_type="human",
         )
+        if self.search_index is not None:
+            self.search_index.upsert(row)
         return row
 
     def archive(self, *, knowledge_space_id: str, knowledge_item_id: str) -> KnowledgeItemRow:
